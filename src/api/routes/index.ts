@@ -5,6 +5,7 @@ import ping from "./ping.ts";
 import token from './token.js';
 import models from './models.ts';
 import videos from './videos.ts';
+import asyncTasks from './async-tasks.ts';
 
 export default [
     {
@@ -22,7 +23,13 @@ export default [
                         videos: '/v1/videos/generations',
                         chat: '/v1/chat/completions',
                         models: '/v1/models',
-                        health: '/ping'
+                        health: '/ping',
+                        async_images: '/v1/async/images/generations',
+                        async_compositions: '/v1/async/images/compositions',
+                        async_videos: '/v1/async/videos/generations',
+                        async_query: '/v1/async/tasks/query',
+                        async_query_get: '/v1/async/tasks/:history_id',
+                        async_credits: '/v1/async/credits'
                     }
                 };
             }
@@ -33,5 +40,6 @@ export default [
     ping,
     token,
     models,
-    videos
+    videos,
+    asyncTasks
 ];
