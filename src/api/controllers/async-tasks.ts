@@ -603,14 +603,13 @@ export async function createVideoGenerationTask(
 }
 
 /**
- * 查询任务状态
- * 
+ * 查询图片任务状态
  * @param historyId 任务ID
  * @param refreshToken 刷新令牌
  * @returns 任务信息
  */
-export async function queryTaskStatus(historyId: string, refreshToken: string) {
-  logger.info(`[查询任务] 查询任务状态: ${historyId}`);
+export async function queryImageTaskStatus(historyId: string, refreshToken: string) {
+  logger.info(`[查询图片任务] 查询任务状态: ${historyId}`);
 
   const response = await request("post", "/mweb/v1/get_history_by_ids", refreshToken, {
     data: {
@@ -643,37 +642,104 @@ export async function queryTaskStatus(historyId: string, refreshToken: string) {
   const failCode = taskInfo.fail_code;
   const itemList = taskInfo.item_list || [];
 
-  // 判断任务类型
-  let taskType = "unknown";
   let results = null;
 
-  // 检查是否为视频任务
-  if (itemList.length > 0 && itemList[0].video) {
-    taskType = "video";
-    // 尝试提取视频URL
-    const videoUrl = extractVideoUrl(itemList[0]);
-    if (videoUrl && status === 10) {
-      results = [{ url: videoUrl }];
-    }
-  } else if (itemList.length > 0 && itemList[0].image) {
-    taskType = "image";
-    // 提取图片URLs
+  // 提取图片URLs
+  if (itemList.length > 0 && itemList[0].image) {
     const imageUrls = extractImageUrls(itemList);
     if (imageUrls.length > 0 && status === 10) {
       results = imageUrls.map(url => ({ url }));
     }
   }
 
-  logger.info(`[查询任务] 任务 ${historyId} - 类型: ${taskType}, 状态: ${status}, 项目数: ${itemList.length}`);
+  logger.info(`[查询图片任务] 任务 ${historyId} - 状态: ${status}, 图片数: ${itemList.length}`);
 
   return {
     history_id: historyId,
-    task_type: taskType,
+    task_type: "image",
     status: status,
     fail_code: failCode,
     item_count: itemList.length,
     results: results,
     raw_data: taskInfo
+  };
+}
+
+/**
+ * 查询视频任务状态
+ * @param historyId 任务ID
+ * @param refreshToken 刷新令牌
+ * @returns 任务信息
+ */
+export async function queryVideoTaskStatus(
+  historyId: string,
+  refreshToken: string
+): Promise<{
+  status: string;
+  statusCode: number;
+  failCode: number;
+  videoUrl: string | null;
+  finishTime: number;
+  rawData: any;
+}> {
+  logger.info(`[查询视频任务] 查询任务状态: ${historyId}`);
+
+  const result = await request("post", "/mweb/v1/get_history_by_ids", refreshToken, {
+    data: {
+      history_ids: [historyId],
+    },
+  });
+
+  // 尝试从响应中提取视频URL
+  const responseStr = JSON.stringify(result);
+  const videoUrlMatch = responseStr.match(/https:\/\/v[0-9]+-artist\.vlabvod\.com\/[^"\s]+/);
+
+  if (!result[historyId]) {
+    // API未返回记录，可能还在处理中
+    return {
+      status: 'processing',
+      statusCode: 20,
+      failCode: 0,
+      videoUrl: null,
+      finishTime: 0,
+      rawData: null,
+    };
+  }
+
+  const historyData = result[historyId];
+  const currentStatus = historyData.status;
+  const currentFailCode = historyData.fail_code || 0;
+  const finishTime = historyData.task?.finish_time || 0;
+  const item_list = historyData.item_list || [];
+
+  // 提取视频URL
+  let videoUrl: string | null = null;
+  if (videoUrlMatch && videoUrlMatch[0]) {
+    videoUrl = videoUrlMatch[0];
+  } else if (item_list.length > 0) {
+    videoUrl = extractVideoUrl(item_list[0]);
+  }
+
+  // 状态映射
+  let statusText = 'unknown';
+  if (currentStatus === 20) statusText = 'processing';
+  else if (currentStatus === 10 || currentStatus === 30) statusText = videoUrl ? 'completed' : 'processing';
+  else if (currentStatus === 50) statusText = videoUrl ? 'completed' : 'failed';
+
+  // 如果有视频URL，视为完成
+  if (videoUrl) {
+    statusText = 'completed';
+  }
+
+  logger.info(`[查询视频任务] historyId=${historyId}, status=${statusText}, videoUrl=${videoUrl ? '已获取' : '无'}`);
+
+  return {
+    status: statusText,
+    statusCode: currentStatus,
+    failCode: currentFailCode,
+    videoUrl,
+    finishTime,
+    rawData: historyData,
   };
 }
 
@@ -700,6 +766,7 @@ export default {
   createImageGenerationTask,
   createImageCompositionTask,
   createVideoGenerationTask,
-  queryTaskStatus,
+  queryImageTaskStatus,
+  queryVideoTaskStatus,
   queryCredits,
 };

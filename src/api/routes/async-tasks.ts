@@ -6,7 +6,8 @@ import {
   createImageGenerationTask,
   createImageCompositionTask,
   createVideoGenerationTask,
-  queryTaskStatus,
+  queryImageTaskStatus,
+  queryVideoTaskStatus,
   queryCredits,
 } from "@/api/controllers/async-tasks.ts";
 import { DEFAULT_IMAGE_MODEL, DEFAULT_VIDEO_MODEL } from "@/api/consts/common.ts";
@@ -242,26 +243,11 @@ export default {
         message: "任务已提交，请使用 history_id 查询任务状态"
       };
     },
-
-    // 查询任务状态
-    "/tasks/query": async (request: Request) => {
-      request
-        .validate("body.history_id", _.isString)
-        .validate("headers.authorization", _.isString);
-
-      const tokens = tokenSplit(request.headers.authorization);
-      const token = _.sample(tokens);
-      const { history_id } = request.body;
-
-      const taskStatus = await queryTaskStatus(history_id, token);
-
-      return taskStatus;
-    },
   },
 
   get: {
-    // 查询任务状态（GET方法）
-    "/tasks/:history_id": async (request: Request) => {
+    // 查询图片任务状态（GET方法）
+    "/images/tasks/:history_id": async (request: Request) => {
       request
         .validate("params.history_id", _.isString)
         .validate("headers.authorization", _.isString);
@@ -270,9 +256,32 @@ export default {
       const token = _.sample(tokens);
       const { history_id } = request.params;
 
-      const taskStatus = await queryTaskStatus(history_id, token);
+      const taskStatus = await queryImageTaskStatus(history_id, token);
 
       return taskStatus;
+    },
+
+    // 查询视频任务状态（GET方法）
+    "/videos/tasks/:history_id": async (request: Request) => {
+      request
+        .validate("params.history_id", _.isString)
+        .validate("headers.authorization", _.isString);
+
+      const tokens = tokenSplit(request.headers.authorization);
+      const token = _.sample(tokens);
+      const { history_id } = request.params;
+
+      const taskStatus = await queryVideoTaskStatus(history_id, token);
+
+      return {
+        history_id: history_id,
+        task_type: "video",
+        status: taskStatus.statusCode,
+        fail_code: taskStatus.failCode,
+        video_url: taskStatus.videoUrl,
+        finish_time: taskStatus.finishTime,
+        raw_data: taskStatus.rawData,
+      };
     },
 
     // 查询积分信息

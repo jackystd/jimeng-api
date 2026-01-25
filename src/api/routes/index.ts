@@ -27,8 +27,8 @@ export default [
                         async_images: '/v1/async/images/generations',
                         async_compositions: '/v1/async/images/compositions',
                         async_videos: '/v1/async/videos/generations',
-                        async_query: '/v1/async/tasks/query',
-                        async_query_get: '/v1/async/tasks/:history_id',
+                        async_query_image: '/v1/async/images/tasks/:history_id',
+                        async_query_video: '/v1/async/videos/tasks/:history_id',
                         async_credits: '/v1/async/credits'
                     }
                 };
