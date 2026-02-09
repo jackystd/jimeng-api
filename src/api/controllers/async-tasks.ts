@@ -284,6 +284,32 @@ async function uploadVideoImageFromUrl(imageUrl: string, refreshToken: string, r
   }
 }
 
+// 处理来自本地缓存文件路径的图片（由xcserver图片缓存服务提供）
+async function uploadVideoImageFromLocalPath(localPath: string, refreshToken: string, regionInfo: RegionInfo): Promise<string> {
+  try {
+    logger.info(`开始从本地缓存文件上传视频图片: ${localPath}`);
+    const imageBuffer = await fs.readFile(localPath);
+    return await uploadImageBuffer(imageBuffer, refreshToken, regionInfo);
+  } catch (error: any) {
+    logger.error(`从本地缓存文件上传视频图片失败: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * 判断路径是本地文件路径还是远端 URL
+ * 本地路径以 / 开头且文件存在
+ */
+async function isLocalFilePath(filePath: string): Promise<boolean> {
+  if (!filePath.startsWith('/')) return false;
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 异步创建视频生成任务
  *
@@ -387,26 +413,33 @@ export async function createVideoGenerationTask(
       }
     }
   }
-  // 如果没有本地文件，再处理URL
+  // 如果没有本地文件，再处理filePaths（可能是URL或本地缓存路径）
   else if (filePaths && filePaths.length > 0) {
-    logger.info(`未检测到本地上传文件，处理 ${filePaths.length} 个图片URL`);
+    logger.info(`未检测到本地上传文件，处理 ${filePaths.length} 个图片路径`);
     for (let i = 0; i < filePaths.length; i++) {
       const filePath = filePaths[i];
       if (!filePath) {
-        logger.warn(`第 ${i + 1} 个图片URL为空，跳过`);
+        logger.warn(`第 ${i + 1} 个图片路径为空，跳过`);
         continue;
       }
       try {
-        logger.info(`开始上传第 ${i + 1} 个URL图片: ${filePath}`);
-        const imageUri = await uploadVideoImageFromUrl(filePath, refreshToken, regionInfo);
+        let imageUri: string;
+        // 检测是否为本地缓存文件路径（由xcserver图片缓存服务提供）
+        if (await isLocalFilePath(filePath)) {
+          logger.info(`开始上传第 ${i + 1} 个本地缓存图片: ${filePath}`);
+          imageUri = await uploadVideoImageFromLocalPath(filePath, refreshToken, regionInfo);
+        } else {
+          logger.info(`开始上传第 ${i + 1} 个URL图片: ${filePath}`);
+          imageUri = await uploadVideoImageFromUrl(filePath, refreshToken, regionInfo);
+        }
         if (imageUri) {
           uploadIDs.push(imageUri);
-          logger.info(`第 ${i + 1} 个URL图片上传成功: ${imageUri}`);
+          logger.info(`第 ${i + 1} 个图片上传成功: ${imageUri}`);
         } else {
-          logger.error(`第 ${i + 1} 个URL图片上传失败: 未获取到 image_uri`);
+          logger.error(`第 ${i + 1} 个图片上传失败: 未获取到 image_uri`);
         }
       } catch (error: any) {
-        logger.error(`第 ${i + 1} 个URL图片上传失败: ${error.message}`);
+        logger.error(`第 ${i + 1} 个图片上传失败: ${error.message}`);
         if (i === 0) {
           throw new APIException(EX.API_REQUEST_FAILED, `首帧图片上传失败: ${error.message}`);
         }
