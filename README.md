@@ -4,7 +4,13 @@
 
 🎨 **Free AI Image and Video Generation API Service** - Based on reverse engineering of Jimeng AI (China site) and Dreamina (international site).
 
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://www.docker.com/) [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-Supported-blue.svg)](https://www.docker.com/) [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE) [![Telegram](https://img.shields.io/badge/Telegram-Group-blue.svg?logo=telegram)](https://t.me/jimeng_api)
+
+> ⭐ **If this project helps you, please give it a Star!** Your support motivates us to keep improving.
+>
+> 🔔 **Watch this project** to get notified about new features and updates.
+>
+> 💬 **Join our Telegram group**: [https://t.me/jimeng_api](https://t.me/jimeng_api) — For questions, feedback, and discussion.
 
 ## ✨ Features
 
@@ -17,6 +23,10 @@
 - 📊 **Detailed Logs**: Structured logging for easy debugging.
 - 🐳 **Docker Support**: Containerized deployment, ready to use out of the box.
 - ⚙️ **Log Level Control**: Dynamically adjust log output level through configuration files.
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=iptag/jimeng-api&type=Date)](https://star-history.com/#iptag/jimeng-api&Date)
 
 ## ⚠ Risk Warning
 
@@ -222,7 +232,7 @@ For more details, see `jimeng-api/Skill.md`.
 - `prompt` (string): The text description of the image.
 - `ratio` (string, optional): The aspect ratio of the image, defaults to `"1:1"`. Supported ratios: `1:1`, `4:3`, `3:4`, `16:9`, `9:16`, `3:2`, `2:3`, `21:9`. **Note**: When `intelligent_ratio` is `true`, this parameter will be ignored and the system will automatically infer the optimal ratio from the prompt.
 - `resolution` (string, optional): The resolution level, defaults to `"2k"`. Supported resolutions: `1k`, `2k`, `4k`.
-- `intelligent_ratio` (boolean, optional): Whether to enable intelligent ratio, defaults to `false`. **⚠️ This parameter only works for the jimeng-4.0/jimeng-4.1/jimeng-4.5 model; other models will ignore it.** When enabled, the system automatically infers the optimal image ratio from the prompt (e.g., "portrait" → 9:16, "landscape" → 16:9).
+- `intelligent_ratio` (boolean, optional): Whether to enable intelligent ratio, defaults to `false`. **⚠️ This parameter only works for the jimeng-4.0/jimeng-4.1/jimeng-4.5/jimeng-4.6/jimeng-5.0 model; other models will ignore it.** When enabled, the system automatically infers the optimal image ratio from the prompt (e.g., "portrait" → 9:16, "landscape" → 16:9).
 - `negative_prompt` (string, optional): Negative prompt.
 - `sample_strength` (number, optional): Sampling strength (0.0-1.0).
 - `response_format` (string, optional): Response format ("url"(default) or "b64_json").
@@ -253,13 +263,13 @@ curl -X POST http://localhost:5100/v1/images/generations \
 **Supported Models**:
 - `nanobananapro`: International sites only, supports `ratio` and `resolution`.
 - `nanobanana`: International sites only.
+- `jimeng-5.0`: China and Asia international sites (HK/JP/SG).
+- `jimeng-4.6`: China and Asia international sites (HK/JP/SG).
 - `jimeng-4.5`: Works on all sites, supports all 2k/4k ratios and intelligent_ratio. **(Default for all sites)**
 - `jimeng-4.1`: Works on all sites, supports all 2k/4k ratios and intelligent_ratio.
 - `jimeng-4.0`: Works on all sites.
 - `jimeng-3.1`: China site only.
 - `jimeng-3.0`: Works on all sites.
-- `jimeng-2.1`: China site only.
-- `jimeng-xl-pro`
 
 **Supported Ratios and Corresponding Resolutions**:
 | resolution | ratio | Resolution |
@@ -391,16 +401,18 @@ A: Yes—direct local file upload is supported. See the "Local single file uploa
 
 **POST** `/v1/videos/generations`
 
-Generate a video from a text prompt (Text-to-Video) or from start/end frame images (Image-to-Video). Supports three generation modes:
+Generate a video from a text prompt (Text-to-Video) or from start/end frame images (Image-to-Video). Supports four generation modes:
 
 1. **Text-to-Video**: Pure text prompt without any images
 2. **Image-to-Video**: Single image as the first frame
 3. **First-Last Frame**: Two images as the first and last frames
+4. **Omni Reference** (New): Mixed image + video inputs as reference materials, with `@field_name` references in the prompt to describe each material's role. Only supported by `jimeng-video-seedance-2.0` and `jimeng-video-seedance-2.0-fast`.
 
 > **Mode Detection**: The system automatically determines the generation mode based on the presence of images:
 > - **No images** → Text-to-Video mode
 > - **1 image** → Image-to-Video mode (only first_frame_image is provided)
 > - **2 images** → First-Last Frame mode (both first_frame_image and end_frame_image are provided)
+> - **`functionMode=omni_reference`** → Omni Reference mode (requires explicit parameter)
 
 **Request Parameters**:
 - `model` (string): The name of the video model to use.
@@ -410,10 +422,14 @@ Generate a video from a text prompt (Text-to-Video) or from start/end frame imag
 - `duration` (number, optional): Video duration in seconds. Supported values vary by model:
   - `jimeng-video-veo3` / `jimeng-video-veo3.1`: `8` (fixed)
   - `jimeng-video-sora2`: `4` (default), `8`, `12`
+  - `jimeng-video-seedance-2.0` / `jimeng-video-seedance-2.0-fast`: `4`~`15` (any integer second, default `5`)
   - `jimeng-video-3.5-pro`: `5` (default), `10`, `12`
   - Other models: `5` (default), `10`
 - `file_paths` (array, optional): An array of image URLs to specify the **start frame** (1st element) and **end frame** (2nd element) of the video.
 - `[file]` (file, optional): Local image files uploaded via `multipart/form-data` (up to 2) to specify the **start frame** and **end frame**. The field name can be arbitrary, e.g., `image1`.
+- `functionMode` (string, optional): Generation mode. Defaults to `"first_last_frames"`. Supported values:
+  - `"first_last_frames"` (default): Standard mode, auto-detects text-to-video / image-to-video / first-last-frame based on image count.
+  - `"omni_reference"`: Omni Reference mode. Requires `jimeng-video-seedance-2.0` or `jimeng-video-seedance-2.0-fast` model. Upload files with specific field names: `image_file_1` ~ `image_file_9` (images), `video_file_1` ~ `video_file_3` (videos). Both local files and URLs are supported. Use `@field_name` in the prompt to reference materials.
 - `response_format` (string, optional): Response format, supports `url` (default) or `b64_json`.
 
 > **Image Input Description**:
@@ -422,7 +438,29 @@ Generate a video from a text prompt (Text-to-Video) or from start/end frame imag
 > - Up to 2 images are supported, the 1st as the start frame, the 2nd as the end frame.
 > - **Important**: Once image input is provided (image-to-video or first-last frame video), the `ratio` parameter will be ignored, and the video aspect ratio will be determined by the input image's actual ratio. The `resolution` parameter remains effective.
 
+> **Omni Reference Mode** (New):
+> - Requires `functionMode=omni_reference` and `model=jimeng-video-seedance-2.0`.
+> - **Material Limits**:
+>   - Up to **9 images** (`image_file_1` ~ `image_file_9`)
+>   - Up to **3 videos** (`video_file_1` ~ `video_file_3`)
+>   - Total materials (images + videos) ≤ **12**
+>   - Total video duration ≤ **15 seconds**
+> - **Image inputs** support three methods (priority from high to low):
+>   1. **Local file upload**: `multipart/form-data` with field names `image_file_1` ~ `image_file_9` (e.g., curl `-F "image_file_1=@local.jpg"`)
+>   2. **URL in form field**: Same field names but with a URL string instead of a file (e.g., curl `-F "image_file_1=https://..."`, no `@` prefix). The server downloads the image first, then uploads it.
+>   3. **`file_paths`/`filePaths` array**: URL array in JSON body, mapped to `image_file_1`/`image_file_2`... slots in order.
+> - All three methods can be **mixed freely** — each slot is filled by the highest-priority source available.
+> - **Video input** supports two methods (priority from high to low):
+>   1. **Local file upload**: `multipart/form-data` with field name `video_file_1` ~ `video_file_3` (e.g., curl `-F "video_file_1=@local.mp4"`)
+>   2. **URL in form field**: Same field name but with a URL string instead of a file (e.g., curl `-F "video_file_1=https://..."`, no `@` prefix). The server downloads the video first, then uploads it.
+> - At least 1 material (image or video) is required, up to 12 files total.
+> - In the `prompt`, use `@field_name` (e.g., `@image_file_1`, `@video_file_1`) or `@original_filename` to reference materials and describe their roles.
+> - **Note**: When using curl `-F`, the `@` symbol in `prompt` values is interpreted as a file reference. Use `--form-string` for the prompt field instead.
+> - Example prompt: `"@image_file_1 as first frame, @image_file_2 as last frame, mimic motion from @video_file_1"`
+
 **Supported Video Models**:
+- `jimeng-video-seedance-2.0` - Seedance 2.0, China site only, supports 4~15s duration, supports Omni Reference mode **(Latest)**
+- `jimeng-video-seedance-2.0-fast` - Seedance 2.0 Fast, China site only, supports 4~15s duration, supports Omni Reference mode, faster generation speed
 - `jimeng-video-3.5-pro` - Professional Edition v3.5, works on all sites **(Default)**
 - `jimeng-video-veo3` - Veo3 model, Asia international sites only (HK/JP/SG), fixed 8s duration
 - `jimeng-video-veo3.1` - Veo3.1 model, Asia international sites only (HK/JP/SG), fixed 8s duration
@@ -471,18 +509,46 @@ curl -X POST http://localhost:5100/v1/videos/generations \
   -d \
     "{\"model\": \"jimeng-video-3.0\", \"prompt\": \"A woman dancing in a garden\", \"ratio\": \"4:3\", \"duration\": 10, \"filePaths\": [\"https://example.com/your-image.jpg\"]}"
 
-```
-
-### Chat Completions
-
-**POST** `/v1/chat/completions`
-
-```bash
-curl -X POST http://localhost:5100/v1/chat/completions \
-  -H "Content-Type: application/json" \
+# Example 5: Omni Reference mode - all local files
+# Requires jimeng-video-seedance-2.0 model
+# Note: Use --form-string for prompt containing @ references (curl -F interprets @ as file)
+curl -X POST http://localhost:5100/v1/videos/generations \
   -H "Authorization: Bearer YOUR_SESSION_ID" \
-  -d \
-    "{\"model\": \"jimeng-4.5\", \"messages\": [ { \"role\": \"user\", \"content\": \"Draw a landscape painting\" } ]}"
+  --form-string "prompt=@image_file_1 as first frame, @image_file_2 as last frame, mimic motion from @video_file" \
+  -F "model=jimeng-video-seedance-2.0" \
+  -F "functionMode=omni_reference" \
+  -F "ratio=16:9" \
+  -F "duration=5" \
+  -F "image_file_1=@/path/to/first.png" \
+  -F "image_file_2=@/path/to/second.png" \
+  -F "video_file=@/path/to/reference-video.mp4"
+
+# Example 6: Omni Reference mode - mix URL images + local video
+# image_file_1/image_file_2 use URLs (no @ prefix), video_file uses local file (with @ prefix)
+curl -X POST http://localhost:5100/v1/videos/generations \
+  -H "Authorization: Bearer YOUR_SESSION_ID" \
+  --form-string "prompt=@image_file_1 as first frame, @image_file_2 as last frame, mimic motion from @video_file" \
+  -F "model=jimeng-video-seedance-2.0" \
+  -F "functionMode=omni_reference" \
+  -F "ratio=16:9" \
+  -F "duration=5" \
+  -F "image_file_1=https://example.com/first.jpg" \
+  -F "image_file_2=https://example.com/second.jpg" \
+  -F "video_file=@/path/to/reference-video.mp4"
+
+# Example 7: Omni Reference mode - all materials via URL (no local files needed)
+# image_file_1/image_file_2/video_file all use URLs (no @ prefix)
+curl -X POST http://localhost:5100/v1/videos/generations \
+  -H "Authorization: Bearer YOUR_SESSION_ID" \
+  --form-string "prompt=@image_file_1 as first frame, @image_file_2 as last frame, mimic motion from @video_file" \
+  -F "model=jimeng-video-seedance-2.0" \
+  -F "functionMode=omni_reference" \
+  -F "ratio=16:9" \
+  -F "duration=5" \
+  -F "image_file_1=https://example.com/first.jpg" \
+  -F "image_file_2=https://example.com/second.jpg" \
+  -F "video_file=https://example.com/reference-video.mp4"
+
 ```
 
 ### Token API
@@ -539,6 +605,13 @@ Check if a token is valid and active.
 **Request Parameters**:
 - `token` (string): The session token to check
 
+**Response Format**:
+```json
+{
+  "live": true
+}
+```
+
 #### Get Credit Points
 
 **POST** `/token/points`
@@ -547,6 +620,21 @@ Get the current credit balance for one or more tokens.
 
 **Request Headers**:
 - `Authorization`: Bearer token(s), multiple tokens separated by commas
+
+**Response Format**:
+```json
+[
+  {
+    "token": "your_token",
+    "points": {
+      "giftCredit": 10,
+      "purchaseCredit": 0,
+      "vipCredit": 0,
+      "totalCredit": 10
+    }
+  }
+]
+```
 
 #### Receive Daily Credits
 
@@ -567,10 +655,18 @@ Manually trigger daily credit collection (check-in). Attempts to claim credits a
       "purchaseCredit": 0,
       "vipCredit": 0,
       "totalCredit": 10
-    }
+    },
+    "received": true,
+    "error": "optional error message"
   }
 ]
 ```
+
+**Response Fields**:
+- `token` (string): The token that was processed
+- `credits` (object): Current credit balance after operation
+- `received` (boolean): Whether credits were successfully claimed (`true` if claimed, `false` if already had credits or claim failed)
+- `error` (string, optional): Error message if claim failed
 
 **Usage Example**:
 ```bash
@@ -600,71 +696,62 @@ curl -X POST http://localhost:5100/token/receive \
 }
 ```
 
-### Chat Completion Response
-```json
-{
-  "id": "chatcmpl-123",
-  "object": "chat.completion",
-  "created": 1759058768,
-  "model": "jimeng-4.5",
-  "choices": [
-    {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "![image](https://example.com/generated-image.jpg)"
-      },
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {
-    "prompt_tokens": 10,
-    "completion_tokens": 20,
-    "total_tokens": 30
-  }
-}
-```
-
-### Stream Response (SSE)
-```
-data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1759058768,"model":"jimeng-4.5","choices":[{"index":0,"delta":{"role":"assistant","content":"🎨 Generating image, please wait..."},"finish_reason":null}]}
-
-data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1759058768,"model":"jimeng-4.5","choices":[{"index":1,"delta":{"role":"assistant","content":"![image](https://example.com/image.jpg)"},"finish_reason":"stop"}]}
-
-data: [DONE]
-```
-
 ## 🏗️ Project Architecture
 
 ```
 jimeng-api/
 ├── src/
 │   ├── api/
+│   │   ├── builders/             # Request builders
+│   │   │   └── payload-builder.ts  # API request payload builder
 │   │   ├── controllers/          # Controller layer
-│   │   │   ├── core.ts          # Core functions (network requests, file handling)
-│   │   │   ├── images.ts        # Image generation logic
-│   │   │   ├── videos.ts        # Video generation logic
-│   │   │   └── chat.ts          # Chat interface logic
-│   │   ├── routes/              # Route definitions
-│   │   └── consts/              # Constant definitions
-│   ├── lib/                     # Core library
-│   │   ├── configs/            # Configuration loading
-│   │   ├── consts/             # Constants
-│   │   ├── exceptions/         # Exception classes
-│   │   ├── interfaces/         # Interface definitions
-│   │   ├── request/            # Request handling
-│   │   ├── response/           # Response handling
-│   │   ├── config.ts           # Configuration center
-│   │   ├── server.ts           # Server core
-│   │   ├── logger.ts           # Logger
-│   │   ├── error-handler.ts    # Unified error handling
-│   │   ├── smart-poller.ts     # Smart poller
-│   │   └── aws-signature.ts    # AWS signature
-│   ├── daemon.ts               # Daemon process
-│   └── index.ts               # Entry file
-├── configs/                    # Configuration files
-├── Dockerfile                 # Docker configuration
-└── package.json              # Project configuration
+│   │   │   ├── core.ts           # Core functions (network requests, file handling)
+│   │   │   ├── images.ts         # Image generation logic
+│   │   │   └── videos.ts         # Video generation logic
+│   │   ├── routes/               # Route definitions
+│   │   │   ├── index.ts          # Route entry
+│   │   │   ├── images.ts         # Image generation routes
+│   │   │   ├── videos.ts         # Video generation routes
+│   │   │   ├── token.ts          # Token management routes
+│   │   │   ├── models.ts         # Model list routes
+│   │   │   └── ping.ts           # Health check routes
+│   │   └── consts/               # Constant definitions
+│   │       ├── common.ts         # Common constants
+│   │       ├── dreamina.ts       # Dreamina site constants
+│   │       └── exceptions.ts     # Exception constants
+│   ├── lib/                      # Core library
+│   │   ├── configs/              # Configuration loading
+│   │   │   ├── service-config.ts # Service configuration
+│   │   │   └── system-config.ts  # System configuration
+│   │   ├── consts/               # Constants
+│   │   ├── exceptions/           # Exception classes
+│   │   │   ├── Exception.ts      # Base exception
+│   │   │   └── APIException.ts   # API exception
+│   │   ├── request/              # Request handling
+│   │   │   └── Request.ts        # Request wrapper
+│   │   ├── response/             # Response handling
+│   │   │   ├── Response.ts       # Response wrapper
+│   │   │   ├── Body.ts           # Response body base
+│   │   │   ├── SuccessfulBody.ts # Success response body
+│   │   │   └── FailureBody.ts    # Failure response body
+│   │   ├── config.ts             # Configuration center
+│   │   ├── server.ts             # Server core
+│   │   ├── logger.ts             # Logger
+│   │   ├── error-handler.ts      # Unified error handling
+│   │   ├── smart-poller.ts       # Smart poller
+│   │   ├── aws-signature.ts      # AWS signature
+│   │   ├── environment.ts        # Environment variables
+│   │   ├── initialize.ts         # Initialization logic
+│   │   ├── http-status-codes.ts  # HTTP status code constants
+│   │   ├── image-uploader.ts     # Image upload utility
+│   │   ├── image-utils.ts        # Image processing utility
+│   │   ├── region-utils.ts       # Region handling utility
+│   │   ├── video-uploader.ts     # Video upload utility (VOD)
+│   │   └── util.ts               # Common utility functions
+│   └── index.ts                  # Entry file
+├── configs/                      # Configuration files
+├── Dockerfile                    # Docker configuration
+└── package.json                  # Project configuration
 ```
 
 ## 🔧 Core Components

@@ -10,7 +10,7 @@ import EX from "@/api/consts/exceptions.ts";
 import logger from "@/lib/logger.ts";
 import util from "@/lib/util.ts";
 import { JimengErrorHandler, JimengErrorResponse } from "@/lib/error-handler.ts";
-import { BASE_URL_DREAMINA_US, BASE_URL_DREAMINA_HK } from "@/api/consts/dreamina.ts";
+import { BASE_URL_DREAMINA_US, BASE_URL_DREAMINA_HK, DA_VERSION, WEB_VERSION } from "@/api/consts/dreamina.ts";
 
 import {
   BASE_URL_CN,
@@ -300,9 +300,10 @@ export async function request(
     device_platform: "web",
     region: region,
     ...(isUS || isHK || isJP || isSG ? {} : { webId: WEB_ID }),
-    da_version: "3.3.2",
+    da_version: DA_VERSION,
+    os: "windows",
     web_component_open_flag: 1,
-    web_version: "7.5.0",
+    web_version: WEB_VERSION,
     aigc_features: "app_lip_sync",
     ...(options.params || {}),
   };
@@ -385,9 +386,20 @@ export async function request(
       logger.error(`请求失败 (尝试 ${retries + 1}/${maxRetries + 1}): ${error.message}`);
 
       // 如果是网络错误或超时，尝试重试
-      if ((error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' ||
-           error.message.includes('timeout') || error.message.includes('network')) &&
-          retries < maxRetries) {
+      // 包含常见的网络错误：ECONNRESET（连接重置）、ENOTFOUND（DNS解析失败）、
+      // ECONNREFUSED（连接被拒绝）、EAI_AGAIN（DNS临时失败）、EPIPE（管道破裂）
+      const retryableErrorCodes = [
+        'ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND',
+        'ECONNREFUSED', 'EAI_AGAIN', 'EPIPE', 'ENETUNREACH', 'EHOSTUNREACH'
+      ];
+      const isRetryableError = retryableErrorCodes.includes(error.code) ||
+        error.message.includes('timeout') ||
+        error.message.includes('network') ||
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('socket hang up') ||
+        error.message.includes('Proxy connection');
+
+      if (isRetryableError && retries < maxRetries) {
         retries++;
         continue;
       }
@@ -412,6 +424,64 @@ export async function request(
     throw error;
   }
  }
+
+/**
+ * 检测上传图片内容合规性（仅国内站）
+ * 调用 algo_proxy 接口进行图片安全检测，不通过则抛出异常
+ *
+ * @param imageUri 已上传图片的 URI
+ * @param refreshToken 刷新令牌
+ * @param regionInfo 区域信息
+ */
+export async function checkImageContent(
+  imageUri: string,
+  refreshToken: string,
+  regionInfo: RegionInfo
+): Promise<void> {
+  // 仅国内站需要内容检测
+  if (regionInfo.isInternational) return;
+
+  const babiParam = JSON.stringify({
+    scenario: "image_video_generation",
+    feature_key: "aigc_to_image",
+    feature_entrance: "to-generate",
+    feature_entrance_detail: "to-generate-algo_proxy",
+  });
+
+  logger.info(`开始图片内容安全检测: ${imageUri}`);
+
+  try {
+    await request("post", "/mweb/v1/algo_proxy", refreshToken, {
+      params: {
+        babi_param: babiParam,
+      },
+      data: {
+        scene: "image_face_ip",
+        options: { ip_check: true },
+        req_key: "benchmark_test_user_upload_image_input",
+        file_list: [{ file_uri: imageUri }],
+        req_params: {},
+      },
+    });
+    logger.info(`图片内容安全检测通过: ${imageUri}`);
+  } catch (error: any) {
+    // 区分内容违规(ret=2003等) vs 网络/服务异常
+    const isContentViolation = error.message && (
+      error.message.includes('2003') ||
+      error.message.includes('risk not pass') ||
+      error.message.includes('detected risk')
+    );
+    if (isContentViolation) {
+      logger.error(`图片内容安全检测未通过: ${imageUri}, ${error.message}`);
+      throw new APIException(
+        EX.API_REQUEST_FAILED,
+        `图片内容检测未通过，该图片可能包含违规内容`
+      );
+    }
+    // 网络/服务异常不阻塞，仅记录警告
+    logger.warn(`图片内容安全检测服务异常(不阻塞): ${imageUri}, ${error.message}`);
+  }
+}
 
  /**
   * 预检查文件URL有效性
