@@ -677,10 +677,10 @@ export async function queryImageTaskStatus(historyId: string, refreshToken: stri
 
   let results = null;
 
-  // 提取图片URLs
+  // 提取图片URLs（status 10=完成, 50 有时也包含已生成的图片）
   if (itemList.length > 0 && itemList[0].image) {
     const imageUrls = extractImageUrls(itemList);
-    if (imageUrls.length > 0 && status === 10) {
+    if (imageUrls.length > 0) {
       results = imageUrls.map(url => ({ url }));
     }
   }
