@@ -365,7 +365,7 @@ export async function request(
       if (options.responseType == "stream") return response;
 
       // 记录响应数据摘要
-      const max_length = 999999;
+      const max_length = 999;
       const responseDataSummary = JSON.stringify(response.data).substring(0, max_length) +
         (JSON.stringify(response.data).length > max_length ? "..." : "");
       //const responseDataSummary = JSON.stringify(response.data)
