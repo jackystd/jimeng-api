@@ -6,38 +6,92 @@ import logger from "@/lib/logger.ts";
  * 统一从不同格式的响应中提取图片URL
  */
 
+export interface ImageUrlInfo {
+  /** 原始 PNG URL（large_images，短效期约2小时） */
+  png: string | null;
+  /** WebP 2048 URL（cover_url，短效期约2小时） */
+  webp: string | null;
+  /** WebP 最大尺寸 URL（cover_url_map 中最大的，长效期约29天） */
+  webp_long: string | null;
+  /** cover_url_map 中所有尺寸的 webp URL（长效期约29天） */
+  webp_sizes: Record<string, string>;
+}
+
 /**
- * 从API响应项中提取图片URL
- * @param item API响应中的单个项目
- * @param index 项目索引（用于日志）
- * @returns 图片URL或null
+ * 从API响应项中提取图片URL（仅 large_images PNG）
  */
 export function extractImageUrl(item: any, index?: number): string | null {
   const logPrefix = index !== undefined ? `图片 ${index + 1}` : '图片';
 
-  // 只提取 large_images
   if (item?.image?.large_images?.[0]?.image_url) {
     let imageUrl = item.image.large_images[0].image_url;
-    // 将URL中的 \u0026 转换为 &
     imageUrl = imageUrl.replace(/\\u0026/g, '&');
     logger.debug(`${logPrefix}: 使用 large_images URL`);
     return imageUrl;
   }
 
-  // 无法提取URL，记录警告
-  logger.warn(`${logPrefix}: 无法提取URL，缺少 image.large_images[0].image_url 字段。item结构: ${JSON.stringify(item, null, 2)}`);
+  logger.warn(`${logPrefix}: 无法提取URL，缺少 image.large_images[0].image_url 字段`);
   return null;
 }
 
 /**
- * 从项目列表中批量提取图片URLs
- * @param itemList 项目列表
- * @returns 图片URL数组
+ * 从API响应项中提取所有格式的图片URL
+ *
+ * 数据来源:
+ * - item.image.large_images[0].image_url → 原始 PNG (aigc_resize:0:0.png, ~2h有效期)
+ * - item.common_attr.cover_url → WebP 2048 (aigc_resize:2048:2048.webp, ~2h有效期)
+ * - item.common_attr.cover_url_map → 多尺寸 WebP (360/480/720/1080/2400, ~29天有效期)
+ */
+export function extractImageUrlInfo(item: any, index?: number): ImageUrlInfo {
+  const logPrefix = index !== undefined ? `图片 ${index + 1}` : '图片';
+  const info: ImageUrlInfo = { png: null, webp: null, webp_long: null, webp_sizes: {} };
+
+  // PNG: item.image.large_images
+  if (item?.image?.large_images?.[0]?.image_url) {
+    info.png = item.image.large_images[0].image_url.replace(/\\u0026/g, '&');
+  }
+
+  // WebP short: item.common_attr.cover_url (2048x2048, 短效期)
+  if (item?.common_attr?.cover_url) {
+    info.webp = item.common_attr.cover_url.replace(/\\u0026/g, '&');
+  }
+
+  // WebP long: item.common_attr.cover_url_map (多尺寸, 长效期~29天)
+  const coverMap = item?.common_attr?.cover_url_map;
+  if (coverMap && typeof coverMap === 'object') {
+    const normalSizeKeys = ['2400', '1080', '720', '480', '360'];
+    for (const key of Object.keys(coverMap)) {
+      if (coverMap[key]) {
+        info.webp_sizes[key] = coverMap[key].replace(/\\u0026/g, '&');
+      }
+    }
+    // 选取 normal scene 中最大的作为 webp_long
+    for (const sizeKey of normalSizeKeys) {
+      if (info.webp_sizes[sizeKey]) {
+        info.webp_long = info.webp_sizes[sizeKey];
+        break;
+      }
+    }
+  }
+
+  logger.debug(`${logPrefix}: png=${!!info.png}, webp=${!!info.webp}, webp_long=${!!info.webp_long}, sizes=${Object.keys(info.webp_sizes).length}`);
+  return info;
+}
+
+/**
+ * 从项目列表中批量提取图片URLs（仅 large_images PNG，兼容旧接口）
  */
 export function extractImageUrls(itemList: any[]): string[] {
   return itemList
     .map((item, index) => extractImageUrl(item, index))
     .filter((url): url is string => url !== null);
+}
+
+/**
+ * 从项目列表中批量提取所有格式的图片URL信息
+ */
+export function extractAllImageUrls(itemList: any[]): ImageUrlInfo[] {
+  return itemList.map((item, index) => extractImageUrlInfo(item, index));
 }
 
 /**

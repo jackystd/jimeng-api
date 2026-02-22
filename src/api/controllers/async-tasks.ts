@@ -4,7 +4,7 @@ import EX from "@/api/consts/exceptions.ts";
 import util from "@/lib/util.ts";
 import { getCredit, receiveCredit, request, parseRegionFromToken, getAssistantId, RegionInfo } from "./core.ts";
 import logger from "@/lib/logger.ts";
-import { extractImageUrls, extractVideoUrl } from "@/lib/image-utils.ts";
+import { extractImageUrls, extractAllImageUrls, extractVideoUrl } from "@/lib/image-utils.ts";
 import { getModel as getImageModel } from "./images.ts";
 import { getModel as getVideoModel } from "./videos.ts";
 import { DEFAULT_IMAGE_MODEL, DEFAULT_VIDEO_MODEL, DRAFT_VERSION } from "@/api/consts/common.ts";
@@ -679,9 +679,16 @@ export async function queryImageTaskStatus(historyId: string, refreshToken: stri
 
   // 提取图片URLs（status 10=完成, 50 有时也包含已生成的图片）
   if (itemList.length > 0 && itemList[0].image) {
+    const allUrlInfos = extractAllImageUrls(itemList);
     const imageUrls = extractImageUrls(itemList);
     if (imageUrls.length > 0) {
-      results = imageUrls.map(url => ({ url }));
+      results = allUrlInfos.map(info => ({
+        url: info.png || info.webp_long || info.webp,
+        png: info.png,
+        webp: info.webp,
+        webp_long: info.webp_long,
+        webp_sizes: Object.keys(info.webp_sizes).length > 0 ? info.webp_sizes : undefined,
+      }));
     }
   }
 
